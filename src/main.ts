@@ -11,6 +11,8 @@ import {
 } from './data';
 import { createSummary, scoreCandidates, type AnalystAdjustment } from './scoring';
 
+type AiProvider = 'openai' | 'anthropic';
+
 type SavedAssessment = {
   id: string;
   savedAt: string;
@@ -34,6 +36,10 @@ type AppState = {
   history: SavedAssessment[];
   copyStatus: string;
   saveStatus: string;
+  aiProvider: AiProvider;
+  aiStatus: string;
+  aiResult: string;
+  aiModel: string;
 };
 
 const STORAGE_KEY = 'media-search-workbench-history';
@@ -78,6 +84,10 @@ let state: AppState = {
   history: loadHistory(),
   copyStatus: 'Copy analyst brief',
   saveStatus: 'Save assessment',
+  aiProvider: 'openai',
+  aiStatus: 'Generate AI analyst note',
+  aiResult: '',
+  aiModel: '',
 };
 
 function escapeHtml(value: string): string {
@@ -121,22 +131,20 @@ function formatSavedAt(value: string): string {
   }).format(new Date(value));
 }
 
-function setCopyStatus(nextStatus: string): void {
-  state = { ...state, copyStatus: nextStatus };
-  render();
-}
-
-function scheduleStatusReset(kind: 'copy' | 'save'): void {
+function scheduleStatusReset(kind: 'copy' | 'save' | 'ai'): void {
   window.setTimeout(() => {
-    state =
-      kind === 'copy'
-        ? { ...state, copyStatus: 'Copy analyst brief' }
-        : { ...state, saveStatus: 'Save assessment' };
+    if (kind === 'copy') {
+      state = { ...state, copyStatus: 'Copy analyst brief' };
+    } else if (kind === 'save') {
+      state = { ...state, saveStatus: 'Save assessment' };
+    } else {
+      state = { ...state, aiStatus: 'Generate AI analyst note' };
+    }
     render();
   }, 1600);
 }
 
-function buildBriefLines(): string {
+function getScoredState() {
   const scored = scoreCandidates(
     state.query,
     state.mediaType,
@@ -145,6 +153,11 @@ function buildBriefLines(): string {
     state.adjustments,
   );
   const summary = createSummary(state.query, state.mediaType, state.market, scored);
+  return { scored, summary };
+}
+
+function buildBriefLines(): string {
+  const { scored, summary } = getScoredState();
 
   return [
     'Media Search Analyst Brief',
@@ -168,6 +181,9 @@ function buildBriefLines(): string {
     '',
     'Analyst Note:',
     state.analystNote || 'No manual note added.',
+    '',
+    'AI Analyst Note:',
+    state.aiResult || 'No AI note generated.',
   ].join('\n');
 }
 
@@ -177,7 +193,8 @@ function exportBrief(): void {
   navigator.clipboard
     .writeText(lines)
     .then(() => {
-      setCopyStatus('Copied analyst brief');
+      state = { ...state, copyStatus: 'Copied analyst brief' };
+      render();
       scheduleStatusReset('copy');
     })
     .catch(() => {
@@ -186,14 +203,7 @@ function exportBrief(): void {
 }
 
 function saveAssessment(): void {
-  const scored = scoreCandidates(
-    state.query,
-    state.mediaType,
-    state.market,
-    candidateResults,
-    state.adjustments,
-  );
-  const summary = createSummary(state.query, state.mediaType, state.market, scored);
+  const { scored, summary } = getScoredState();
   const topResult = scored[0];
 
   const saved: SavedAssessment = {
@@ -271,16 +281,62 @@ function createResearchLinks(query: string, mediaType: MediaType, market: Market
   ];
 }
 
-function render(): void {
-  const scored = scoreCandidates(
-    state.query,
-    state.mediaType,
-    state.market,
-    candidateResults,
-    state.adjustments,
-  );
+async function generateAiNote(): Promise<void> {
+  const { scored } = getScoredState();
+  state = { ...state, aiStatus: 'Generating...', aiResult: '', aiModel: '' };
+  render();
 
-  const summary = createSummary(state.query, state.mediaType, state.market, scored);
+  try {
+    const response = await fetch('/api/analysis', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider: state.aiProvider,
+        query: state.query,
+        mediaType: mediaTypeLabels[state.mediaType],
+        market: marketLabels[state.market],
+        analystNote: state.analystNote,
+        topResults: scored.slice(0, 5).map((result) => ({
+          title: result.title,
+          mediaType: mediaTypeLabels[result.mediaType],
+          score: result.score,
+          verdict: result.verdict,
+          description: result.description,
+        })),
+      }),
+    });
+
+    const data = (await response.json()) as { error?: string; text?: string; model?: string };
+    if (!response.ok) {
+      throw new Error(data.error || 'AI request failed');
+    }
+
+    state = {
+      ...state,
+      aiStatus: 'AI analyst note ready',
+      aiResult: data.text || 'No AI note returned.',
+      aiModel: data.model || '',
+    };
+    render();
+    scheduleStatusReset('ai');
+  } catch (error) {
+    state = {
+      ...state,
+      aiStatus: 'API unavailable in static demo',
+      aiResult:
+        error instanceof Error
+          ? error.message
+          : 'Could not reach the local API server. Run `npm run dev:full` to enable AI-backed notes.',
+      aiModel: '',
+    };
+    render();
+  }
+}
+
+function render(): void {
+  const { scored, summary } = getScoredState();
   const topThreeAverage = Math.round(
     scored.slice(0, 3).reduce((sum, result) => sum + result.score, 0) /
       Math.max(1, scored.slice(0, 3).length),
@@ -473,6 +529,39 @@ function render(): void {
               .join('')}
           </div>
 
+          <div class="ai-panel">
+            <div class="ai-panel-top">
+              <div>
+                <p class="eyebrow">Secure API Mode</p>
+                <h3>AI Research Assist</h3>
+              </div>
+              <label class="field compact-field">
+                <span>Provider</span>
+                <select id="aiProvider">
+                  <option value="openai" ${state.aiProvider === 'openai' ? 'selected' : ''}>OpenAI</option>
+                  <option value="anthropic" ${state.aiProvider === 'anthropic' ? 'selected' : ''}>Anthropic</option>
+                </select>
+              </label>
+            </div>
+            <p class="ai-hint">
+              Uses a local server endpoint so your API keys stay in environment variables, not in the browser bundle.
+              Run <code>npm run dev:full</code> locally to enable this panel.
+            </p>
+            <div class="summary-actions">
+              <button class="secondary-button" type="button" data-generate-ai>${escapeHtml(state.aiStatus)}</button>
+            </div>
+            ${
+              state.aiResult
+                ? `
+                  <div class="ai-output">
+                    ${state.aiModel ? `<span>Model: ${escapeHtml(state.aiModel)}</span>` : ''}
+                    <pre>${escapeHtml(state.aiResult)}</pre>
+                  </div>
+                `
+                : ''
+            }
+          </div>
+
           <div class="results-list">
             ${scored
               .slice(0, 8)
@@ -597,6 +686,7 @@ function bindEvents(): void {
   const mediaField = document.querySelector<HTMLSelectElement>('#mediaType');
   const marketField = document.querySelector<HTMLSelectElement>('#market');
   const noteField = document.querySelector<HTMLTextAreaElement>('#analystNote');
+  const providerField = document.querySelector<HTMLSelectElement>('#aiProvider');
 
   queryField?.addEventListener('input', (event) => {
     state = { ...state, query: (event.currentTarget as HTMLTextAreaElement).value };
@@ -615,6 +705,11 @@ function bindEvents(): void {
 
   noteField?.addEventListener('input', (event) => {
     state = { ...state, analystNote: (event.currentTarget as HTMLTextAreaElement).value };
+    render();
+  });
+
+  providerField?.addEventListener('change', (event) => {
+    state = { ...state, aiProvider: (event.currentTarget as HTMLSelectElement).value as AiProvider };
     render();
   });
 
@@ -662,7 +757,7 @@ function bindEvents(): void {
   });
 
   document.querySelector('[data-copy-status]')?.addEventListener('click', exportBrief);
-
+  document.querySelector('[data-generate-ai]')?.addEventListener('click', generateAiNote);
   document.querySelector('[data-clear-history]')?.addEventListener('click', clearHistory);
 
   document.querySelectorAll<HTMLButtonElement>('[data-load-history]').forEach((button) => {

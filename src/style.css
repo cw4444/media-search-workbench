@@ -60,6 +60,11 @@ select {
   font: inherit;
 }
 
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
 button {
   cursor: pointer;
 }
@@ -450,6 +455,44 @@ h3 {
   margin-bottom: 16px;
 }
 
+.ai-panel {
+  margin-bottom: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--surface-strong);
+  border: 1px solid rgba(33, 28, 24, 0.08);
+  display: grid;
+  gap: 12px;
+}
+
+.ai-panel-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.compact-field {
+  width: min(220px, 100%);
+}
+
+.ai-hint {
+  color: var(--muted);
+}
+
+.ai-output {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(33, 28, 24, 0.08);
+}
+
+.ai-output pre {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+
 .research-link {
   display: block;
   padding: 14px;
@@ -657,6 +700,14 @@ h3 {
   .research-links,
   .hero-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .ai-panel-top {
+    flex-direction: column;
+  }
+
+  .compact-field {
+    width: 100%;
   }
 }
 

@@ -29,6 +29,7 @@ Instead of pretending to be a full production pipeline, it focuses on the part t
 - Manual reviewer adjustments to simulate analyst judgment
 - Browser-saved assessment history so the tool feels like a real working desk
 - Live research jump-offs for web, market, and trend checks
+- Secure AI research assist via local OpenAI or Anthropic server calls
 - Copy-to-clipboard brief for a quick handoff or portfolio demo
 - Responsive interface designed to feel more like an operations desk than a starter template
 
@@ -45,6 +46,29 @@ Instead of pretending to be a full production pipeline, it focuses on the part t
 npm install
 npm run dev
 ```
+
+## Local development with secure API mode
+
+The GitHub Pages demo stays static on purpose, so API keys are never exposed there.
+
+For local AI-backed analyst notes, use environment variables and run both the API server and frontend together:
+
+```bash
+npm install
+npm run dev:full
+```
+
+Supported environment variables:
+
+```bash
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o
+
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
+```
+
+You can also copy [.env.example](.env.example) to `.env.local` if you prefer file-based local envs.
 
 ## Production build
 
