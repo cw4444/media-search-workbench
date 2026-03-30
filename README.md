@@ -27,6 +27,8 @@ Instead of pretending to be a full production pipeline, it focuses on the part t
 - Analyst presets for apps, music, video, books, podcasts, and home-audio tasks
 - Scoring model for exactness, intent, market fit, trend awareness, and trust
 - Manual reviewer adjustments to simulate analyst judgment
+- Browser-saved assessment history so the tool feels like a real working desk
+- Live research jump-offs for web, market, and trend checks
 - Copy-to-clipboard brief for a quick handoff or portfolio demo
 - Responsive interface designed to feel more like an operations desk than a starter template
 

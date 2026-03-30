@@ -11,13 +11,33 @@ import {
 } from './data';
 import { createSummary, scoreCandidates, type AnalystAdjustment } from './scoring';
 
+type SavedAssessment = {
+  id: string;
+  savedAt: string;
+  query: string;
+  mediaType: MediaType;
+  market: MarketCode;
+  analystNote: string;
+  adjustments: Record<string, AnalystAdjustment>;
+  headline: string;
+  confidence: string;
+  topTitle: string;
+  topScore: number;
+};
+
 type AppState = {
   query: string;
   mediaType: MediaType;
   market: MarketCode;
   analystNote: string;
   adjustments: Record<string, AnalystAdjustment>;
+  history: SavedAssessment[];
+  copyStatus: string;
+  saveStatus: string;
 };
+
+const STORAGE_KEY = 'media-search-workbench-history';
+const MAX_HISTORY_ITEMS = 8;
 
 function getAppRoot(): HTMLDivElement {
   const root = document.querySelector<HTMLDivElement>('#app');
@@ -29,6 +49,24 @@ function getAppRoot(): HTMLDivElement {
   return root;
 }
 
+function loadHistory(): SavedAssessment[] {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as SavedAssessment[];
+    return Array.isArray(parsed) ? parsed.slice(0, MAX_HISTORY_ITEMS) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistHistory(history: SavedAssessment[]): void {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)));
+}
+
 const initialPreset = analystPresets[0];
 
 let state: AppState = {
@@ -37,6 +75,9 @@ let state: AppState = {
   market: initialPreset.market,
   analystNote: initialPreset.researchFocus,
   adjustments: {},
+  history: loadHistory(),
+  copyStatus: 'Copy analyst brief',
+  saveStatus: 'Save assessment',
 };
 
 function escapeHtml(value: string): string {
@@ -73,7 +114,29 @@ function verdictTone(score: number): string {
   return 'negative';
 }
 
-function exportBrief(): void {
+function formatSavedAt(value: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function setCopyStatus(nextStatus: string): void {
+  state = { ...state, copyStatus: nextStatus };
+  render();
+}
+
+function scheduleStatusReset(kind: 'copy' | 'save'): void {
+  window.setTimeout(() => {
+    state =
+      kind === 'copy'
+        ? { ...state, copyStatus: 'Copy analyst brief' }
+        : { ...state, saveStatus: 'Save assessment' };
+    render();
+  }, 1600);
+}
+
+function buildBriefLines(): string {
   const scored = scoreCandidates(
     state.query,
     state.mediaType,
@@ -82,7 +145,8 @@ function exportBrief(): void {
     state.adjustments,
   );
   const summary = createSummary(state.query, state.mediaType, state.market, scored);
-  const lines = [
+
+  return [
     'Media Search Analyst Brief',
     `Query: ${state.query}`,
     `Media type: ${mediaTypeLabels[state.mediaType]}`,
@@ -93,7 +157,7 @@ function exportBrief(): void {
     'Top Results:',
     ...scored.slice(0, 5).map(
       (result, index) =>
-        `${index + 1}. ${result.title} | ${result.mediaType} | ${result.score}/100 | ${result.verdict}`,
+        `${index + 1}. ${result.title} | ${mediaTypeLabels[result.mediaType]} | ${result.score}/100 | ${result.verdict}`,
     ),
     '',
     'Rationale:',
@@ -105,21 +169,106 @@ function exportBrief(): void {
     'Analyst Note:',
     state.analystNote || 'No manual note added.',
   ].join('\n');
+}
+
+function exportBrief(): void {
+  const lines = buildBriefLines();
 
   navigator.clipboard
     .writeText(lines)
     .then(() => {
-      const copied = document.querySelector<HTMLElement>('[data-copy-status]');
-      if (copied) {
-        copied.textContent = 'Copied analyst brief';
-        setTimeout(() => {
-          copied.textContent = 'Copy analyst brief';
-        }, 1800);
-      }
+      setCopyStatus('Copied analyst brief');
+      scheduleStatusReset('copy');
     })
     .catch(() => {
       window.alert(lines);
     });
+}
+
+function saveAssessment(): void {
+  const scored = scoreCandidates(
+    state.query,
+    state.mediaType,
+    state.market,
+    candidateResults,
+    state.adjustments,
+  );
+  const summary = createSummary(state.query, state.mediaType, state.market, scored);
+  const topResult = scored[0];
+
+  const saved: SavedAssessment = {
+    id: `${Date.now()}`,
+    savedAt: new Date().toISOString(),
+    query: state.query,
+    mediaType: state.mediaType,
+    market: state.market,
+    analystNote: state.analystNote,
+    adjustments: { ...state.adjustments },
+    headline: summary.headline,
+    confidence: summary.confidence,
+    topTitle: topResult?.title ?? 'No result',
+    topScore: topResult?.score ?? 0,
+  };
+
+  const nextHistory = [saved, ...state.history].slice(0, MAX_HISTORY_ITEMS);
+  persistHistory(nextHistory);
+  state = { ...state, history: nextHistory, saveStatus: 'Assessment saved' };
+  render();
+  scheduleStatusReset('save');
+}
+
+function clearHistory(): void {
+  persistHistory([]);
+  state = { ...state, history: [] };
+  render();
+}
+
+function loadAssessment(id: string): void {
+  const saved = state.history.find((entry) => entry.id === id);
+  if (!saved) {
+    return;
+  }
+
+  state = {
+    ...state,
+    query: saved.query,
+    mediaType: saved.mediaType,
+    market: saved.market,
+    analystNote: saved.analystNote,
+    adjustments: saved.adjustments,
+  };
+  render();
+}
+
+function createResearchLinks(query: string, mediaType: MediaType, market: MarketCode) {
+  const encodedQuery = encodeURIComponent(query);
+  const marketHint = encodeURIComponent(`${query} ${marketLabels[market]}`);
+  const storefrontByType: Record<MediaType, string> = {
+    apps: `https://www.google.com/search?q=${encodeURIComponent(`${query} site:apps.apple.com`)}`,
+    music: `https://www.google.com/search?q=${encodeURIComponent(`${query} site:music.apple.com`)}`,
+    video: `https://www.youtube.com/results?search_query=${encodedQuery}`,
+    books: `https://www.google.com/search?q=${encodeURIComponent(`${query} site:books.apple.com`)}`,
+    podcasts: `https://podcasts.apple.com/search?term=${encodedQuery}`,
+    home: `https://www.google.com/search?q=${encodeURIComponent(`${query} smart speaker reviews`)}`,
+  };
+
+  return [
+    {
+      label: 'Open web search',
+      description: 'Check broad query intent and neighboring entities.',
+      href: `https://www.google.com/search?q=${marketHint}`,
+    },
+    {
+      label: 'Open market search',
+      description: `Jump to a ${mediaTypeLabels[mediaType].toLowerCase()}-leaning surface.`,
+      href: storefrontByType[mediaType],
+    },
+    {
+      label: 'Open trend search',
+      description: 'Quickly sanity-check recent chatter and trend direction.',
+      href: `https://www.google.com/search?q=${encodeURIComponent(`${query} trends popularity`)}`,
+    },
+  ];
 }
 
 function render(): void {
@@ -137,6 +286,8 @@ function render(): void {
       Math.max(1, scored.slice(0, 3).length),
   );
   const ambiguityCount = scored.slice(0, 5).filter((result) => result.mediaType !== state.mediaType).length;
+  const relevantCount = scored.filter((result) => result.verdict === 'Relevant').length;
+  const researchLinks = createResearchLinks(state.query, state.mediaType, state.market);
 
   const appRoot = getAppRoot();
 
@@ -144,17 +295,25 @@ function render(): void {
     <div class="shell">
       <section class="hero-panel">
         <div class="hero-copy">
-          <p class="eyebrow">Analyst Sandbox</p>
+          <p class="eyebrow">Portfolio Prototype</p>
           <h1>Media Search Workbench</h1>
           <p class="lede">
-            Prototype a realistic media search analyst flow: classify query intent, score results against a rubric,
-            and write a quick verdict that sounds like an actual evaluation queue.
+            A sharper take on vague media search analyst work: classify messy intent, compare cross-media candidates,
+            and leave an auditable verdict instead of vibes-based ranking.
           </p>
+          <div class="hero-actions">
+            <button class="copy-button hero-action" type="button" data-save-assessment>${escapeHtml(state.saveStatus)}</button>
+            <a class="hero-link" href="https://github.com/cw4444/media-search-workbench" target="_blank" rel="noreferrer">View source</a>
+          </div>
         </div>
         <div class="hero-metrics">
           <div>
             <span>Top 3 Avg</span>
             <strong>${topThreeAverage}</strong>
+          </div>
+          <div>
+            <span>Strong matches</span>
+            <strong>${relevantCount}</strong>
           </div>
           <div>
             <span>Cross-media noise</span>
@@ -165,6 +324,24 @@ function render(): void {
             <strong>${scored[0]?.score ?? 0}/100</strong>
           </div>
         </div>
+      </section>
+
+      <section class="workflow-strip">
+        <article>
+          <span>01</span>
+          <h3>Classify intent</h3>
+          <p>Start with market, format, and whether the query is entity-led or exploratory.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Compare candidates</h3>
+          <p>Score exactness, intent fit, trust, and trend relevance across likely result types.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Leave a trail</h3>
+          <p>Save snapshots, export the verdict, and hand off something another reviewer can defend.</p>
+        </article>
       </section>
 
       <main class="workspace">
@@ -246,12 +423,54 @@ function render(): void {
               </ul>
             </div>
           </div>
+
+          <div class="history-panel">
+            <div class="history-heading">
+              <div>
+                <p class="eyebrow">Saved Cases</p>
+                <h3>Assessment History</h3>
+              </div>
+              ${
+                state.history.length
+                  ? '<button class="text-button" type="button" data-clear-history>Clear</button>'
+                  : ''
+              }
+            </div>
+            ${
+              state.history.length
+                ? state.history
+                    .map(
+                      (entry) => `
+                        <button class="history-item" type="button" data-load-history="${entry.id}">
+                          <span>${escapeHtml(formatSavedAt(entry.savedAt))}</span>
+                          <strong>${escapeHtml(entry.query)}</strong>
+                          <p>${escapeHtml(entry.topTitle)} · ${entry.topScore}/100 · ${escapeHtml(entry.confidence)}</p>
+                        </button>
+                      `,
+                    )
+                    .join('')
+                : '<p class="empty-history">Saved assessments stay in your browser so the demo feels like an actual review desk.</p>'
+            }
+          </div>
         </section>
 
         <section class="results-panel">
           <div class="panel-heading">
             <p class="eyebrow">Ranked Results</p>
             <h2>Query Assessment</h2>
+          </div>
+
+          <div class="research-links">
+            ${researchLinks
+              .map(
+                (link) => `
+                  <a class="research-link" href="${link.href}" target="_blank" rel="noreferrer">
+                    <strong>${escapeHtml(link.label)}</strong>
+                    <span>${escapeHtml(link.description)}</span>
+                  </a>
+                `,
+              )
+              .join('')}
           </div>
 
           <div class="results-list">
@@ -349,7 +568,10 @@ function render(): void {
             </div>
           </div>
 
-          <button class="copy-button" type="button" data-copy-status>Copy analyst brief</button>
+          <div class="summary-actions">
+            <button class="copy-button" type="button" data-copy-status>${escapeHtml(state.copyStatus)}</button>
+            <button class="secondary-button" type="button" data-save-assessment>${escapeHtml(state.saveStatus)}</button>
+          </div>
         </aside>
       </main>
     </div>
@@ -375,7 +597,6 @@ function bindEvents(): void {
   const mediaField = document.querySelector<HTMLSelectElement>('#mediaType');
   const marketField = document.querySelector<HTMLSelectElement>('#market');
   const noteField = document.querySelector<HTMLTextAreaElement>('#analystNote');
-  const copyButton = document.querySelector<HTMLButtonElement>('[data-copy-status]');
 
   queryField?.addEventListener('input', (event) => {
     state = { ...state, query: (event.currentTarget as HTMLTextAreaElement).value };
@@ -405,6 +626,7 @@ function bindEvents(): void {
       }
 
       state = {
+        ...state,
         query: preset.query,
         mediaType: preset.mediaType,
         market: preset.market,
@@ -435,7 +657,22 @@ function bindEvents(): void {
     });
   });
 
-  copyButton?.addEventListener('click', exportBrief);
+  document.querySelectorAll<HTMLButtonElement>('[data-save-assessment]').forEach((button) => {
+    button.addEventListener('click', saveAssessment);
+  });
+
+  document.querySelector('[data-copy-status]')?.addEventListener('click', exportBrief);
+
+  document.querySelector('[data-clear-history]')?.addEventListener('click', clearHistory);
+
+  document.querySelectorAll<HTMLButtonElement>('[data-load-history]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.loadHistory;
+      if (id) {
+        loadAssessment(id);
+      }
+    });
+  });
 }
 
 render();
