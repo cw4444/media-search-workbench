@@ -39,6 +39,7 @@ Instead of pretending to be a full production pipeline, it focuses on the part t
 - TypeScript
 - Plain browser UI with no framework dependency
 - GitHub Pages workflow for automatic static deployment
+- Optional Vercel deployment for server-side API routes and secure env vars
 
 ## Local development
 
@@ -69,6 +70,28 @@ ANTHROPIC_MODEL=claude-sonnet-4-20250514
 ```
 
 You can also copy [.env.example](.env.example) to `.env.local` if you prefer file-based local envs.
+
+## Hosted deployment with secure env vars
+
+If you want the AI mode to work on a public hosted URL, deploy the repo to Vercel.
+
+This repo now includes:
+
+- [api/analysis.js](api/analysis.js) for AI-backed analyst notes
+- [api/health.js](api/health.js) for provider health checks
+- [vercel.json](vercel.json) so Vercel builds the Vite frontend and serves the API routes
+
+Set these environment variables in Vercel:
+
+```bash
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o
+
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
+```
+
+Once those are set, the same UI will call `/api/analysis` on your hosted deployment and the AI panel will work without exposing secrets client-side.
 
 ## Production build
 
