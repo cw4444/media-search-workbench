@@ -1,34 +1,77 @@
 # Media Search Workbench
 
-A lightweight prototype for practicing and demonstrating the kind of judgement described in media search analyst roles.
+A small, portfolio-friendly prototype for the kind of vague, judgment-heavy search evaluation work described in media search analyst listings.
 
-## What it does
+Live demo:
+`Pending deployment`
 
-- Lets you enter a messy real-world search query.
-- Switches between apps, music, video, books, podcasts, and home-audio evaluation.
-- Scores seeded candidate results against an analyst-style rubric.
-- Surfaces ambiguity, cross-media noise, and a short escalation note.
-- Copies an export-ready analyst brief to the clipboard.
+GitHub repo:
+[cw4444/media-search-workbench](https://github.com/cw4444/media-search-workbench)
 
-## Run it
+## What it is
+
+This project turns a fuzzy job description into something concrete:
+
+- take a messy real-world query
+- choose a media domain and market
+- score likely results against a consistent relevance rubric
+- flag ambiguity and cross-media noise
+- export a short analyst-style verdict
+
+Instead of pretending to be a full production pipeline, it focuses on the part that is easiest to demonstrate and easiest to extend later: structured evaluation logic.
+
+## Features
+
+- Analyst presets for apps, music, video, books, podcasts, and home-audio tasks
+- Scoring model for exactness, intent, market fit, trend awareness, and trust
+- Manual reviewer adjustments to simulate analyst judgment
+- Copy-to-clipboard brief for a quick handoff or portfolio demo
+- Responsive interface designed to feel more like an operations desk than a starter template
+
+## Stack
+
+- Vite
+- TypeScript
+- Plain browser UI with no framework dependency
+- GitHub Pages workflow for automatic static deployment
+
+## Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Build it
+## Production build
 
 ```bash
 npm run build
 ```
 
-## Why this shape
+## Why this exists
 
-The job brief is vague, so this MVP focuses on the most defensible automation surface:
+The original prompt for this repo was basically:
 
-1. structure the query
-2. rank candidate outcomes against a rubric
-3. help the operator write a consistent verdict
+> "This is not a job, it's a hostage situation."
 
-It is intentionally local and self-contained, which makes it useful as a portfolio demo or a base for plugging into live APIs later.
+Which, honestly, felt fair.
+
+The listing described search evaluation across apps, music, video, books, podcasts, and home-device contexts, but without saying what a normal day actually looks like. So this repo treats the role as an analyst workflow problem:
+
+1. understand query intent
+2. compare likely result types
+3. score relevance consistently
+4. leave a concise decision trail
+
+That makes it useful as:
+
+- a portfolio piece
+- a UI prototype
+- a base for plugging in live APIs later
+
+## Next ideas
+
+- Replace seeded candidates with live search or catalog APIs
+- Add result snapshots and evidence links per decision
+- Store completed assessments locally or in a small backend
+- Add side-by-side result comparison for adjudication tasks
