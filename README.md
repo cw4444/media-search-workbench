@@ -120,9 +120,5 @@ That makes it useful as:
 - a UI prototype
 - a base for plugging in live APIs later
 
-## Next ideas
-
-- Replace seeded candidates with live search or catalog APIs
-- Add result snapshots and evidence links per decision
-- Store completed assessments locally or in a small backend
-- Add side-by-side result comparison for adjudication tasks
+## License
+This software is currently not licensed for commercial use. If you’d like to use this in a business setting or install it professionally, please contact me at cw4444@gmail.com
