@@ -1,7 +1,12 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ command }) => ({
-  base: command === 'serve' ? '/' : '/media-search-workbench/',
+  base:
+    command === 'serve'
+      ? '/'
+      : process.env.VERCEL
+        ? '/'
+        : '/media-search-workbench/',
   server: {
     proxy: {
       '/api': {
