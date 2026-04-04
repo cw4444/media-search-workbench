@@ -2,9 +2,6 @@
 
 A small, portfolio-friendly prototype for the kind of vague, judgment-heavy search evaluation work described in media search analyst listings.
 
-Live demo:
-[cw4444.github.io/media-search-workbench](https://cw4444.github.io/media-search-workbench/)
-
 ![Media Search Workbench UI](docs/media-search-workbench.png)
 
 ## What it is
