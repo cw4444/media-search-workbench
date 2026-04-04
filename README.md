@@ -5,9 +5,6 @@ A small, portfolio-friendly prototype for the kind of vague, judgment-heavy sear
 Live demo:
 [cw4444.github.io/media-search-workbench](https://cw4444.github.io/media-search-workbench/)
 
-GitHub repo:
-[cw4444/media-search-workbench](https://github.com/cw4444/media-search-workbench)
-
 ![Media Search Workbench UI](docs/media-search-workbench.png)
 
 ## What it is
