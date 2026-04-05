@@ -2,8 +2,6 @@
 
 A small, portfolio-friendly prototype for the kind of vague, judgment-heavy search evaluation work described in media search analyst listings.
 
-![Media Search Workbench UI](docs/media-search-workbench.png)
-
 ## What it is
 
 This project turns a fuzzy job description into something concrete:
