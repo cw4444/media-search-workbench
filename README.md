@@ -113,9 +113,3 @@ That makes it useful as:
 - a portfolio piece
 - a UI prototype
 - a base for plugging in live APIs later
-
-## License
-
-This project is proprietary. You may not use, copy, modify, redistribute, deploy, or install it for commercial or client use without prior written permission.
-
-Commercial licenses are available. For business use, professional installation, or deployment enquiries, contact me
